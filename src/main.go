@@ -8,7 +8,7 @@ import (
 	"github.com/olivere/elastic"
 	"github.com/yanyiwu/gojieba"
 	"io/ioutil"
-	"log"
+
 	"net/http"
 	"net/url"
 	"reflect"
@@ -103,26 +103,16 @@ func Get_datares(data *[]Modify_data, sub_title string, sub_time string, sub_url
 	var single_data_res Modify_data
 
 
-	u, err := url.Parse(sub_url)
-	if err != nil {
-		panic(err)
-	}
+	parseUrl, err := url.Parse(sub_url)
+	HandleError(err, "parseUrl")
 
-	fmt.Println(u.Host)
-	if err != nil {
+	fmt.Println(parseUrl.Host)
+	HandleError(err, "parseUrl.Host")
 
-		log.Fatal(err)
-
-	}
-
-	if u.Host=="zz.focus.cn" {
+	if parseUrl.Host=="zz.focus.cn" {
 		doc, err := goquery.NewDocumentFromReader(strings.NewReader(GetPageStr(sub_url)))
 
-		if err != nil {
-
-			log.Fatal(err)
-
-		}
+		HandleError(err, "goquery")
 
 		fmt.Println(sub_time)
 		fmt.Println(sub_title)
@@ -147,14 +137,10 @@ func Get_datares(data *[]Modify_data, sub_title string, sub_time string, sub_url
 		*data = append(*data, single_data_res )
 
 
-	} else if u.Host == "k.sina.com.cn" || u.Host =="news.sina.com.cn" {
+	} else if parseUrl.Host == "k.sina.com.cn" || parseUrl.Host =="news.sina.com.cn" {
 		doc, err := goquery.NewDocumentFromReader(strings.NewReader(GetPageStr(sub_url)))
 
-		if err != nil {
-
-			log.Fatal(err)
-
-		}
+		HandleError(err, "goquery")
 		fmt.Println(sub_time)
 		fmt.Println(sub_title)
 		single_data_res.Title=sub_title
@@ -187,11 +173,7 @@ func Get_datares(data *[]Modify_data, sub_title string, sub_time string, sub_url
 	} else {
 		doc, err := goquery.NewDocumentFromReader(strings.NewReader(GetPageStr(sub_url)))
 
-		if err != nil {
-
-			log.Fatal(err)
-
-		}
+		HandleError(err, "goquery")
 		fmt.Println(sub_time)
 		fmt.Println(sub_title)
 		single_data_res.Title=sub_title
@@ -233,8 +215,8 @@ func main() {
 
 
 
-	urll := "http://api.tianapi.com/generalnews/index?key=e522570c5b2737fb6be17f0184bd87d1&page=1&&num=10"
-	req, _ := http.NewRequest("GET", urll, nil)
+	urlApi := "http://api.tianapi.com/generalnews/index?key=e522570c5b2737fb6be17f0184bd87d1&page=1&&num=10"
+	req, _ := http.NewRequest("GET", urlApi, nil)
 	res, _ := http.DefaultClient.Do(req)
 	defer res.Body.Close()
 	fmt.Println("var1 = ", reflect.TypeOf(res.Body))
@@ -259,53 +241,41 @@ func main() {
 	}
 	ctx := context.Background()
 	client, err := elastic.NewClient(elastic.SetSniff(false), elastic.SetURL("http://127.0.0.1:9200"))
-	if err != nil {
-		panic(err)
-	}
+	HandleError(err, "newclient")
 
 	// 用IndexExists检查索引是否存在
 	exists, err := client.IndexExists(indexName).Do(ctx)
-	if err != nil {
-		panic(err)
-	}
+	HandleError(err, "indexexist")
 	fmt.Println("Phone No. = ")
 	if !exists {
 		// 用CreateIndex创建索引，mapping内容用BodyString传入
 		_, err := client.CreateIndex(indexName).BodyString(mapping).Do(ctx)
-		if err != nil {
-			panic(err)
-		}
+		HandleError(err, "createindex")
 	}
 	fmt.Println("Phone No. =bbb ")
 
 
 	// 写入
-	docc, err := client.Index().
+	docEs, err := client.Index().
 		Index(indexName).
 		Id(strconv.Itoa(data_res[0].ID)).
 		BodyJson(data_res[0]).
 		Refresh("wait_for").
 		Do(ctx)
 
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Indexed with id=%v, type=%s\n", docc.Id, docc.Type)
+	HandleError(err, "clientindex")
+	fmt.Printf("Indexed with id=%v, type=%s\n", docEs.Id, docEs.Type)
 	//读取
 	result, err := client.Get().
 		Index(indexName).
 		Id(strconv.Itoa(data_res[0].ID)).
 		Do(ctx)
-	if err != nil {
-		panic(err)
-	}
+	HandleError(err, "clientget")
 	if result.Found {
 		fmt.Printf("Got document %v (version=%d, index=%s, type=%s)\n",
 			result.Id, result.Version, result.Index, result.Type)
 		err := json.Unmarshal(result.Source, &data_res_back)
-		if err != nil {
-			panic(err)
-		}
+		HandleError(err, "clientfound")
 		fmt.Println(data_res_back.ID, data_res_back.Title, data_res_back.Source, data_res_back.Types, data_res_back.Timestamp, data_res_back.Body)
 	}
     //大量写入
@@ -316,9 +286,7 @@ func main() {
 	}
 
 	response, err := bulkRequest.Do(ctx)
-	if err != nil {
-		panic(err)
-	}
+	HandleError(err, "bulkrequest")
 	failed := response.Failed()
 	l := len(failed)
 	if l > 0 {
