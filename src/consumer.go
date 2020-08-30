@@ -49,7 +49,7 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 		if err != nil {
 			panic(err)
 		}
-
+        // 去重
 		redisclient, err := redis.Dial("tcp", "localhost:6379")
 		if err != nil {
 			panic(err)
@@ -67,6 +67,7 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 				data_res = append(data_res[:j], data_res[j+1:]...)
 			}
 		}
+		//文字审核
 		if len(data_res)>0{
 			for i :=0; i<len(data_res);i++{
 				isPass := textcensor.IsPass(data_res[i].Body,true)
@@ -76,6 +77,7 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 
 			}
 		}
+		//es 写入
 		ctx := context.Background()
 		client, err := elastic.NewClient(elastic.SetSniff(false), elastic.SetURL("http://127.0.0.1:9200"))
 		HandleError(err, "newclient")
@@ -90,7 +92,7 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 			HandleError(err, "createindex")
 		}
 		fmt.Println("Phone No. =bbb ")
-		
+
 		bulkRequest := client.Bulk()
 		for _, subject := range data_res {
 			doc := elastic.NewBulkIndexRequest().Index(indexName).Id(strconv.Itoa(subject.ID)).Doc(subject)
@@ -114,12 +116,7 @@ func (consumer *Consumer) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 }
 
 func main() {
-	//if len(os.Args) < 4 {
-	//	fmt.Fprintf(os.Stderr, "Usage: %s <broker> <group> <topics..>\n",
-	//		os.Args[0])
-	//	os.Exit(1)
-	//}
-	//redisclient, err := redis.Dial("tcp", "localhost:6379")
+//kafaka 消费数据
 	broker := "localhost:9092"
 	group := "1"
 	var topics []string
