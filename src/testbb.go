@@ -53,3 +53,56 @@ func main() {
 		fmt.Printf("Partition = %d, offset=%d\n", partition, offset)
 	}
 }
+ctx := context.Background()
+client, err := elastic.NewClient(elastic.SetSniff(false), elastic.SetURL("http://127.0.0.1:9200"))
+HandleError(err, "newclient")
+
+// 用IndexExists检查索引是否存在
+exists, err := client.IndexExists(indexName).Do(ctx)
+HandleError(err, "indexexist")
+fmt.Println("Phone No. = ")
+if !exists {
+	// 用CreateIndex创建索引，mapping内容用BodyString传入
+	_, err := client.CreateIndex(indexName).BodyString(mapping).Do(ctx)
+	HandleError(err, "createindex")
+}
+fmt.Println("Phone No. =bbb ")
+
+
+// 写入
+docEs, err := client.Index().
+	Index(indexName).
+	Id(strconv.Itoa(data_res[0].ID)).
+	BodyJson(data_res[0]).
+	Refresh("wait_for").
+	Do(ctx)
+
+HandleError(err, "clientindex")
+fmt.Printf("Indexed with id=%v, type=%s\n", docEs.Id, docEs.Type)
+//读取
+result, err := client.Get().
+	Index(indexName).
+	Id(strconv.Itoa(data_res[0].ID)).
+	Do(ctx)
+HandleError(err, "clientget")
+if result.Found {
+	fmt.Printf("Got document %v (version=%d, index=%s, type=%s)\n",
+		result.Id, result.Version, result.Index, result.Type)
+	err := json.Unmarshal(result.Source, &data_res_back)
+	HandleError(err, "clientfound")
+	fmt.Println(data_res_back.ID, data_res_back.Title, data_res_back.Source, data_res_back.Types, data_res_back.Timestamp, data_res_back.Body)
+}
+//大量写入
+bulkRequest := client.Bulk()
+for _, subject := range data_res {
+	doc := elastic.NewBulkIndexRequest().Index(indexName).Id(strconv.Itoa(subject.ID)).Doc(subject)
+	bulkRequest = bulkRequest.Add(doc)
+}
+
+response, err := bulkRequest.Do(ctx)
+HandleError(err, "bulkrequest")
+failed := response.Failed()
+l := len(failed)
+if l > 0 {
+	fmt.Printf("Error(%d)", l, response.Errors)
+}

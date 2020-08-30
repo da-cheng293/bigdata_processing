@@ -83,7 +83,7 @@ func newschina_deal(single_data_res Modify_data, news_china_url string) Modify_d
 	HandleError(err, "goquery")
 
 
-	doc.Find(".chan_newsDetail").Find("p").Each(func(i int, selection *goquery.Selection) {
+	doc.Find("#chan_newsDetail").Find("p").Each(func(i int, selection *goquery.Selection) {
 
 		single_data_res.Body=single_data_res.Body+selection.Text()
 	})
@@ -139,7 +139,37 @@ func sina_deal(single_data_res Modify_data, sina_url string) Modify_data{
 		//single_data_res.ID=sub_id
 		return single_data_res
 }
+func zhibo_deal(single_data_res Modify_data, zhibo_url string) Modify_data{
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(GetPageStr(zhibo_url)))
 
+	HandleError(err, "goquery")
+
+
+	doc.Find(".article-content").Find("p").Each(func(i int, selection *goquery.Selection) {
+
+		single_data_res.Body=single_data_res.Body+selection.Text()
+	})
+	fmt.Println(single_data_res.Body)
+	x := gojieba.NewJieba()
+	defer x.Free()
+
+	keywords := x.ExtractWithWeight(single_data_res.Body, 5)
+	fmt.Println("Extract:", keywords)
+
+	for _, elem := range keywords{
+		single_data_res.Types=append(single_data_res.Types, elem.Word)
+	}
+
+	doc.Find("span.anchor").Each(func(i int, selection *goquery.Selection) {
+		fmt.Println(selection.Text())
+		single_data_res.Source=single_data_res.Source+selection.Text()
+
+	})
+
+
+	//single_data_res.ID=sub_id
+	return single_data_res
+}
 func bar(msg string) {
 	log.Printf("bar! Message is %s", msg)
 }
@@ -185,6 +215,7 @@ func Get_datares(data *[]Modify_data, sub_title string, sub_time string, sub_url
 		"k.sina.com.cn": sina_deal,
 		"news.sina.com.cn": sina_deal,
 		"news.china.com": newschina_deal,
+		"v.zhibo.tv": zhibo_deal,
 	}
 
 	value, ok := url_map[parseUrl.Host]
@@ -310,7 +341,7 @@ func main() {
 
 
 
-	urlApi := "http://api.tianapi.com/generalnews/index?key=e522570c5b2737fb6be17f0184bd87d1&page=1&&num=50"
+	urlApi := "http://api.tianapi.com/generalnews/index?key=e522570c5b2737fb6be17f0184bd87d1&page=1&&num=10"
 	req, _ := http.NewRequest("GET", urlApi, nil)
 	res, _ := http.DefaultClient.Do(req)
 	defer res.Body.Close()

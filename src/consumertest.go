@@ -3,6 +3,7 @@ import (
 	"fmt"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+    "github.com/kai1987/go-text-censor"
 )
 func main() {
 
