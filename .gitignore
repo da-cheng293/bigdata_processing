@@ -12,7 +12,7 @@
 *.out
 
 # Dependency directories (remove the comment below to include it)
-
-# src/github.com/
-# src/gopkg.in/
-# src/golang.org/
+vendor/
+src/github.com/
+src/gopkg.in/
+src/golang.org/
